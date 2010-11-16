@@ -2,6 +2,14 @@
 use IO::Socket;
 use Time::HiRes;
 use Term::ANSIColor;
+
+# use Getopt::Std;
+#
+# getopt('oDI'); # -o, -D & -I take arg. Sets $opt_* as a side effect.
+# getopt('oDI', \%opts); # -o, -D & -I take arg. Values in %opts
+# getopts('oif:'); # -o & -i are boolean flags, -f takes an argument
+# # Sets $opt_* as a side effect.
+
 unless (@ARGV == 3) {
     die "usage: $0 delay host document"
 }
@@ -9,7 +17,9 @@ unless (@ARGV == 3) {
 $delay = shift(@ARGV) / 1000;
 $host = shift(@ARGV);
 $document = shift(@ARGV);
-@colors = ('green', 'yellow', 'blue', 'magenta', 'cyan');
+$verbose = 0;
+$context = 3;
+
 $remote = IO::Socket::INET->new( Proto     => "tcp",
                                  PeerAddr  => $host,
                                  PeerPort  => "http(80)",
@@ -21,28 +31,65 @@ $status = <$remote>;
 unless ($status =~ /200 OK/) {
     die "$status";
 }
+
+@colors = ('blue', 'magenta', 'cyan');
+$color = shift(@colors);
+$emphasis = 'bold red';
+print color $color;
+
 $waited = 0.0;
 $waitcount = 0;
 $start = [Time::HiRes::gettimeofday()];
 $req_start = [Time::HiRes::gettimeofday()];
+
+$printcount=0;
+@previouslines = ();
+
 while ( <$remote> ) {
+    $line = $_;
     $elapsed = Time::HiRes::tv_interval($start);
     $close = $delay - $elapsed;
     # just doing elapsed > delay doesn't work
     if ($close < 0) {
-        $waitcount = $waitcount +1;
+        $waitcount = $waitcount + 1;
         $waited = $waited + $elapsed;
-        print "--------------------------------------------------------------------------------\n";
-        print $last_line;
-        print colored ("Waited " . $elapsed . " seconds here\n", 'bold red');
-        print $_;
+        print colored("--------------------------------------------------------------------------------\n", $emphasis);
+        unless ($verbose) {
+            $printcount = $context;
+            foreach $previous (@previouslines) {
+                print $previous
+            }
+            @previouslines = ();
+        }
+        print colored("Waited " . $elapsed . " seconds here\n", $emphasis);
+        print colored("--------------------------------------------------------------------------------\n", $emphasis) if $verbose;
+        if ($verbose) {
+            push(@colors, $color);
+            $color = shift(@colors);
+            print color $color;
+        }
     }
-    $last_line = $_;
-    $start = [Time::HiRes::gettimeofday()]
+    # filter whitespace
+    unless ($line =~ /^\s*$/) {
+        if ($verbose) {
+            print $line;
+        } else {
+            if ($printcount > 0) {
+                print $line;
+                $printcount = $printcount - 1;
+            }
+            if ( scalar(@previouslines) == $context ) {
+                shift(@previouslines);
+            }
+            push(@previouslines, $line);
+        }
+    }
+    $start = [Time::HiRes::gettimeofday()];
 }
 if ($waitcount > 0) {
-        print "--------------------------------------------------------------------------------\n";
+        print colored("--------------------------------------------------------------------------------\n", $emphasis);
     }
+print color 'reset';
 print "\nWaited $waitcount times for a length of $waited\n";
 print "Total request time of " . Time::HiRes::tv_interval($req_start) . " seconds\n";
 close $remote;
