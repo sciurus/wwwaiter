@@ -1,0 +1,9 @@
+wwwaiter requires a reasonably modern perl and the following modules:
+
+- Getopt::Std
+- IO::Socket
+- Term::ANSIColor
+- Term::ReadKey
+- Time::HiRes
+
+If you are using linux, these should be available via your distribution's package manager. If not, you can install them via CPAN.
