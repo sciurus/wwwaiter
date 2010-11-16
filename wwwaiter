@@ -1,0 +1,48 @@
+#!/usr/bin/perl -w
+use IO::Socket;
+use Time::HiRes;
+use Term::ANSIColor;
+unless (@ARGV == 3) {
+    die "usage: $0 delay host document"
+}
+# convert milliseconds to seconds
+$delay = shift(@ARGV) / 1000;
+$host = shift(@ARGV);
+$document = shift(@ARGV);
+@colors = ('green', 'yellow', 'blue', 'magenta', 'cyan');
+$remote = IO::Socket::INET->new( Proto     => "tcp",
+                                 PeerAddr  => $host,
+                                 PeerPort  => "http(80)",
+                                );
+unless ($remote) { die "cannot connect to http daemon on $host" }
+print $remote "GET $document HTTP/1.0\n";
+print $remote "HOST: $host\n\n";
+$status = <$remote>;
+unless ($status =~ /200 OK/) {
+    die "$status";
+}
+$waited = 0.0;
+$waitcount = 0;
+$start = [Time::HiRes::gettimeofday()];
+$req_start = [Time::HiRes::gettimeofday()];
+while ( <$remote> ) {
+    $elapsed = Time::HiRes::tv_interval($start);
+    $close = $delay - $elapsed;
+    # just doing elapsed > delay doesn't work
+    if ($close < 0) {
+        $waitcount = $waitcount +1;
+        $waited = $waited + $elapsed;
+        print "--------------------------------------------------------------------------------\n";
+        print $last_line;
+        print colored ("Waited " . $elapsed . " seconds here\n", 'bold red');
+        print $_;
+    }
+    $last_line = $_;
+    $start = [Time::HiRes::gettimeofday()]
+}
+if ($waitcount > 0) {
+        print "--------------------------------------------------------------------------------\n";
+    }
+print "\nWaited $waitcount times for a length of $waited\n";
+print "Total request time of " . Time::HiRes::tv_interval($req_start) . " seconds\n";
+close $remote;
