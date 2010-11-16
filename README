@@ -12,7 +12,7 @@ If the web server you are testing uses a port other than port 80, you can specif
 
 = EXAMPLES =
   * wwwaiter example.com/foo.html - Display 3 lines before and after each 10 ms delay.
-  * wwwaiter -c 5 -d 100 example.com/foo.html - Display 3 lines before and after each 100 ms delay.
+  * wwwaiter -c 5 -d 100 example.com/foo.html - Display 5 lines before and after each 100 ms delay.
   * wwwaiter -v example.com/foo.html - Display the entire document and change the color after each 10 ms delay.
   * wwwaiter -p 8080 example.com/foo.html - Connect to the web server running example.com on port 8080 rather than port 80.
 
