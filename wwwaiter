@@ -65,15 +65,16 @@ if ( $url =~ /^(.+:\/\/)(.*)/ ) {
     $url = $2;
 }
 
-@urlparts = split( '/', $url );
+$host_end = index($url, '/');
 
-if ( scalar(@urlparts) > 2 ) {
-    $slashes = scalar(@urlparts) - 1;
-    die "The URL must have only one forward slash, but your URL had $slashes\n";
+if ($host_end == -1) {
+    $host = $url;
+    $document = "/";
 }
-$host     = $urlparts[0];
-$document = "/";
-$document = "$document . $urlparts[1]" if defined( $urlparts[1] );
+else {
+    $host = substr($url, 0, $host_end);
+    $document = substr($url, $host_end);
+}
 
 $remote = IO::Socket::INET->new(
     Proto    => "tcp",
