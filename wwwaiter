@@ -5,6 +5,9 @@ use Term::ANSIColor;
 use Term::ReadKey;
 use Time::HiRes;
 
+
+$VERSION = '1.0';
+
 sub HELP_MESSAGE {
     print "usage: wwwaiter [OPTIONS] URL\n";
     print "\nwwwaiter is a program for visualizing delays in receiving portions of a document from a web server. ";
@@ -22,125 +25,136 @@ getopts('vd:c:p:');
 
 if ( defined($opt_v) ) {
     $verbose = $opt_v;
-} else {
+}
+else {
     $verbose = 0;
 }
 
 if ( defined($opt_d) ) {
     $delay = $opt_d / 1000;
-} else {
+}
+else {
     $delay = .01;
 }
 
 if ( defined($opt_c) ) {
     $context = $opt_c;
-} else {
+}
+else {
     $context = 3;
 }
 
 if ( defined($opt_p) ) {
     $port = $opt_p;
-} else {
+}
+else {
     $port = 80;
 }
 
-unless (@ARGV == 1) {
+unless ( @ARGV == 1 ) {
     HELP_MESSAGE();
-    exit 1; 
+    exit 1;
 }
 
 $url = shift(@ARGV);
 
 if ( $url =~ /^(.+:\/\/)(.*)/ ) {
-    unless ($1 eq 'http://') {
+    unless ( $1 eq 'http://' ) {
         die "This program can only speak http://, not $1 \n";
     }
-    $url = $2
+    $url = $2;
 }
 
-@urlparts = split('/', $url);
+@urlparts = split( '/', $url );
 
-if ( scalar(@urlparts) > 2) {
+if ( scalar(@urlparts) > 2 ) {
     $slashes = scalar(@urlparts) - 1;
     die "The URL must have only one forward slash, but your URL had $slashes\n";
 }
-$host = $urlparts[0];
+$host     = $urlparts[0];
 $document = "/";
-$document = "$document . $urlparts[1]" if defined($urlparts[1]);
+$document = "$document . $urlparts[1]" if defined( $urlparts[1] );
 
-$remote = IO::Socket::INET->new( Proto     => "tcp",
-                                 PeerAddr  => $host,
-                                 PeerPort  => "$port",
-                                );
+$remote = IO::Socket::INET->new(
+    Proto    => "tcp",
+    PeerAddr => $host,
+    PeerPort => "$port",
+);
 unless ($remote) { die "cannot connect to http daemon on $host" }
 print $remote "GET $document HTTP/1.0\n";
 print $remote "HOST: $host\n\n";
 $status = <$remote>;
-unless ($status =~ /200 OK/) {
+
+unless ( $status =~ /200 OK/ ) {
     die "$status";
 }
 
-@size = GetTerminalSize();
+@size    = GetTerminalSize();
 $divider = '-' x $size[0];
 
-@colors = ('blue', 'magenta', 'cyan');
-$color = shift(@colors);
+@colors   = ( 'blue', 'magenta', 'cyan' );
+$color    = shift(@colors);
 $emphasis = 'bold red';
 print color $color;
 
-$waited = 0.0;
+$waited    = 0.0;
 $waitcount = 0;
-$start = [Time::HiRes::gettimeofday()];
-$req_start = [Time::HiRes::gettimeofday()];
+$start     = [ Time::HiRes::gettimeofday() ];
+$req_start = [ Time::HiRes::gettimeofday() ];
 
-$printcount=0;
+$printcount    = 0;
 @previouslines = ();
 
-while ( <$remote> ) {
-    $line = $_;
+while (<$remote>) {
+    $line    = $_;
     $elapsed = Time::HiRes::tv_interval($start);
-    $close = $delay - $elapsed;
+    $close   = $delay - $elapsed;
+
     # just doing elapsed > delay doesn't work
-    if ($close < 0) {
+    if ( $close < 0 ) {
         $waitcount = $waitcount + 1;
-        $waited = $waited + $elapsed;
-        print colored("$divider\n", $emphasis);
+        $waited    = $waited + $elapsed;
+        print colored( "$divider\n", $emphasis );
         unless ($verbose) {
             $printcount = $context;
             foreach my $previous (@previouslines) {
-                print $previous
+                print $previous;
             }
             @previouslines = ();
         }
-        print colored("Waited " . $elapsed . " seconds here\n", $emphasis);
-        print colored("$divider\n", $emphasis) if $verbose;
+        print colored( "Waited " . $elapsed . " seconds here\n", $emphasis );
+        print colored( "$divider\n", $emphasis ) if $verbose;
         if ($verbose) {
-            push(@colors, $color);
+            push( @colors, $color );
             $color = shift(@colors);
             print color $color;
         }
     }
+
     # filter whitespace
-    unless ($line =~ /^\s*$/) {
+    unless ( $line =~ /^\s*$/ ) {
         if ($verbose) {
             print $line;
-        } else {
-            if ($printcount > 0) {
+        }
+        else {
+            if ( $printcount > 0 ) {
                 print $line;
                 $printcount = $printcount - 1;
             }
             if ( scalar(@previouslines) == $context ) {
                 shift(@previouslines);
             }
-            push(@previouslines, $line);
+            push( @previouslines, $line );
         }
     }
-    $start = [Time::HiRes::gettimeofday()];
+    $start = [ Time::HiRes::gettimeofday() ];
 }
-if ($waitcount > 0) {
-        print colored("$divider\n", $emphasis);
-    }
+if ( $waitcount > 0 ) {
+    print colored( "$divider\n", $emphasis );
+}
 print color 'reset';
 print "\nWaited $waitcount times for $waited seconds\n";
-print "Total request time of " . Time::HiRes::tv_interval($req_start) . " seconds\n";
+print "Total request time of "
+  . Time::HiRes::tv_interval($req_start)
+  . " seconds\n";
 close $remote;
