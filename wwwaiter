@@ -1,28 +1,76 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
+use Getopt::Std;
 use IO::Socket;
-use Time::HiRes;
 use Term::ANSIColor;
+use Term::ReadKey;
+use Time::HiRes;
 
-# use Getopt::Std;
-#
-# getopt('oDI'); # -o, -D & -I take arg. Sets $opt_* as a side effect.
-# getopt('oDI', \%opts); # -o, -D & -I take arg. Values in %opts
-# getopts('oif:'); # -o & -i are boolean flags, -f takes an argument
-# # Sets $opt_* as a side effect.
-
-unless (@ARGV == 3) {
-    die "usage: $0 delay host document"
+sub HELP_MESSAGE {
+    print "usage: wwwaiter [OPTIONS] URL\n";
+    print "\nwwwaiter is a program for visualizing delays in receiving portions of a document from a web server. ";
+    print " It wont be exact due to buffering done by your webserver and OS, but it should help diagnose slow parts of web applications.\n";
+    print "\nOPTIONS\n";
+    print "-v\tDisplay entire page rather than just context.\n";
+    print "-d\tSpecify minimum delay in page loading to report. Default is 10 ms.\n";
+    print "-c\tSpecify lines of context around a delay to display. Default is 3.\n";
+    print "-p\tSpecify alternate http port. Default is 80.\n";
+    print "\n";
+    return;
 }
-# convert milliseconds to seconds
-$delay = shift(@ARGV) / 1000;
-$host = shift(@ARGV);
-$document = shift(@ARGV);
-$verbose = 0;
-$context = 3;
+
+getopts('vd:c:p:');
+
+if ( defined($opt_v) ) {
+    $verbose = $opt_v;
+} else {
+    $verbose = 0;
+}
+
+if ( defined($opt_d) ) {
+    $delay = $opt_d / 1000;
+} else {
+    $delay = .01;
+}
+
+if ( defined($opt_c) ) {
+    $context = $opt_c;
+} else {
+    $context = 3;
+}
+
+if ( defined($opt_p) ) {
+    $port = $opt_p;
+} else {
+    $port = 80;
+}
+
+unless (@ARGV == 1) {
+    HELP_MESSAGE();
+    exit 1; 
+}
+
+$url = shift(@ARGV);
+
+if ( $url =~ /^(.+:\/\/)(.*)/ ) {
+    unless ($1 eq 'http://') {
+        die "This program can only speak http://, not $1 \n";
+    }
+    $url = $2
+}
+
+@urlparts = split('/', $url);
+
+if ( scalar(@urlparts) > 2) {
+    $slashes = scalar(@urlparts) - 1;
+    die "The URL must have only one forward slash, but your URL had $slashes\n";
+}
+$host = $urlparts[0];
+$document = "/";
+$document = "$document . $urlparts[1]" if defined($urlparts[1]);
 
 $remote = IO::Socket::INET->new( Proto     => "tcp",
                                  PeerAddr  => $host,
-                                 PeerPort  => "http(80)",
+                                 PeerPort  => "$port",
                                 );
 unless ($remote) { die "cannot connect to http daemon on $host" }
 print $remote "GET $document HTTP/1.0\n";
@@ -31,6 +79,9 @@ $status = <$remote>;
 unless ($status =~ /200 OK/) {
     die "$status";
 }
+
+@size = GetTerminalSize();
+$divider = '-' x $size[0];
 
 @colors = ('blue', 'magenta', 'cyan');
 $color = shift(@colors);
@@ -53,16 +104,16 @@ while ( <$remote> ) {
     if ($close < 0) {
         $waitcount = $waitcount + 1;
         $waited = $waited + $elapsed;
-        print colored("--------------------------------------------------------------------------------\n", $emphasis);
+        print colored("$divider\n", $emphasis);
         unless ($verbose) {
             $printcount = $context;
-            foreach $previous (@previouslines) {
+            foreach my $previous (@previouslines) {
                 print $previous
             }
             @previouslines = ();
         }
         print colored("Waited " . $elapsed . " seconds here\n", $emphasis);
-        print colored("--------------------------------------------------------------------------------\n", $emphasis) if $verbose;
+        print colored("$divider\n", $emphasis) if $verbose;
         if ($verbose) {
             push(@colors, $color);
             $color = shift(@colors);
@@ -87,9 +138,9 @@ while ( <$remote> ) {
     $start = [Time::HiRes::gettimeofday()];
 }
 if ($waitcount > 0) {
-        print colored("--------------------------------------------------------------------------------\n", $emphasis);
+        print colored("$divider\n", $emphasis);
     }
 print color 'reset';
-print "\nWaited $waitcount times for a length of $waited\n";
+print "\nWaited $waitcount times for $waited seconds\n";
 print "Total request time of " . Time::HiRes::tv_interval($req_start) . " seconds\n";
 close $remote;
