@@ -116,10 +116,8 @@ my @previouslines = ();
 while (<$remote>) {
     my $line    = $_;
     my $elapsed = Time::HiRes::tv_interval($start);
-    my $close   = $delay - $elapsed;
 
-    # just doing elapsed > delay doesn't work
-    if ( $close < 0 ) {
+    if ( $elapsed > $delay ) {
         $waitcount = $waitcount + 1;
         $waited    = $waited + $elapsed;
         print colored( "$divider\n", $emphasis );
