@@ -1,4 +1,7 @@
 #!/usr/bin/perl
+use strict;
+use warnings;
+
 use Getopt::Std;
 use IO::Socket;
 use Term::ANSIColor;
@@ -6,7 +9,7 @@ use Term::ReadKey;
 use Time::HiRes;
 
 
-$VERSION = '1.0';
+our $VERSION = '1.0.1';
 
 sub HELP_MESSAGE {
     print "usage: wwwaiter [OPTIONS] URL\n";
@@ -20,6 +23,9 @@ sub HELP_MESSAGE {
     print "\n";
     return;
 }
+
+our ($opt_v, $opt_d, $opt_c, $opt_p);
+my ($verbose, $delay, $context, $port);
 
 getopts('vd:c:p:');
 
@@ -56,7 +62,7 @@ unless ( @ARGV == 1 ) {
     exit 1;
 }
 
-$url = shift(@ARGV);
+my $url = shift(@ARGV);
 
 if ( $url =~ /^(.+:\/\/)(.*)/ ) {
     unless ( $1 eq 'http://' ) {
@@ -65,7 +71,8 @@ if ( $url =~ /^(.+:\/\/)(.*)/ ) {
     $url = $2;
 }
 
-$host_end = index($url, '/');
+my $host_end = index($url, '/');
+my ($host, $document);
 
 if ($host_end == -1) {
     $host = $url;
@@ -76,7 +83,7 @@ else {
     $document = substr($url, $host_end);
 }
 
-$remote = IO::Socket::INET->new(
+my $remote = IO::Socket::INET->new(
     Proto    => "tcp",
     PeerAddr => $host,
     PeerPort => "$port",
@@ -84,32 +91,32 @@ $remote = IO::Socket::INET->new(
 unless ($remote) { die "cannot connect to http daemon on $host" }
 print $remote "GET $document HTTP/1.0\n";
 print $remote "HOST: $host\n\n";
-$status = <$remote>;
+my $status = <$remote>;
 
 unless ( $status =~ /200 OK/ ) {
     die "$status";
 }
 
-@size    = GetTerminalSize();
-$divider = '-' x $size[0];
+my @size    = GetTerminalSize();
+my $divider = '-' x $size[0];
 
-@colors   = ( 'blue', 'magenta', 'cyan' );
-$color    = shift(@colors);
-$emphasis = 'bold red';
+my @colors   = ( 'blue', 'magenta', 'cyan' );
+my $color    = shift(@colors);
+my $emphasis = 'bold red';
 print color $color;
 
-$waited    = 0.0;
-$waitcount = 0;
-$start     = [ Time::HiRes::gettimeofday() ];
-$req_start = [ Time::HiRes::gettimeofday() ];
+my $waited    = 0.0;
+my $waitcount = 0;
+my $start     = [ Time::HiRes::gettimeofday() ];
+my $req_start = [ Time::HiRes::gettimeofday() ];
 
-$printcount    = 0;
-@previouslines = ();
+my $printcount    = 0;
+my @previouslines = ();
 
 while (<$remote>) {
-    $line    = $_;
-    $elapsed = Time::HiRes::tv_interval($start);
-    $close   = $delay - $elapsed;
+    my $line    = $_;
+    my $elapsed = Time::HiRes::tv_interval($start);
+    my $close   = $delay - $elapsed;
 
     # just doing elapsed > delay doesn't work
     if ( $close < 0 ) {
