@@ -8,24 +8,27 @@ use Term::ANSIColor;
 use Term::ReadKey;
 use Time::HiRes;
 
-
 our $VERSION = '1.0.1';
 
 sub HELP_MESSAGE {
     print "usage: wwwaiter [OPTIONS] URL\n";
-    print "\nwwwaiter is a program for visualizing delays in receiving portions of a document from a web server. ";
-    print " It wont be exact due to buffering done by your webserver and OS, but it should help diagnose slow parts of web applications.\n";
+    print
+"\nwwwaiter is a program for visualizing delays in receiving portions of a document from a web server. ";
+    print
+" It wont be exact due to buffering done by your webserver and OS, but it should help diagnose slow parts of web applications.\n";
     print "\nOPTIONS\n";
     print "-v\tDisplay entire page rather than just context.\n";
-    print "-d\tSpecify minimum delay in page loading to report. Default is 10 ms.\n";
-    print "-c\tSpecify lines of context around a delay to display. Default is 3.\n";
+    print
+"-d\tSpecify minimum delay in page loading to report. Default is 10 ms.\n";
+    print
+      "-c\tSpecify lines of context around a delay to display. Default is 3.\n";
     print "-p\tSpecify alternate http port. Default is 80.\n";
     print "\n";
     return;
 }
 
-our ($opt_v, $opt_d, $opt_c, $opt_p);
-my ($verbose, $delay, $context, $port);
+our ( $opt_v, $opt_d, $opt_c, $opt_p );
+my ( $verbose, $delay, $context, $port );
 
 getopts('vd:c:p:');
 
@@ -71,16 +74,16 @@ if ( $url =~ /^(.+:\/\/)(.*)/ ) {
     $url = $2;
 }
 
-my $host_end = index($url, '/');
-my ($host, $document);
+my $host_end = index( $url, '/' );
+my ( $host, $document );
 
-if ($host_end == -1) {
-    $host = $url;
+if ( $host_end == -1 ) {
+    $host     = $url;
     $document = "/";
 }
 else {
-    $host = substr($url, 0, $host_end);
-    $document = substr($url, $host_end);
+    $host = substr( $url, 0, $host_end );
+    $document = substr( $url, $host_end );
 }
 
 my $remote = IO::Socket::INET->new(
